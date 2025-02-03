@@ -21,8 +21,50 @@ V1.04
 	-Add Event EmptyAreaClick
 V1.05
 	-Add Index to ASChips_Chip Type
+V1.06
+	-Add get and set TopGap - Gap between items vertical
+		-Default: 5dip
+V1.07
+	-Add Designer Property SelectionMode - An integrated selection system
+		-Modes
+			-None
+			-Single
+			-Multi
+		-Default: None
+	-Add Designer Property CanDeselect - If true, then the user can remove the selection by clicking again
+		-Default: True
+	-Add set Selection
+	-Add ClearSelections
+	-Add get Selections
+	-Add CopyChipPropertiesGlobal
+	-Add RefreshProperties - Updates just the font and colors
+	-Add Designer Property SelectionBackgroundColor
+		-Default: Transparent
+V1.08
+	-BugFix
+V1.09
+	-Add Designer Property SelectionTextColor
+		-Default: White
+	-Add SetSelections
+V1.10
+	-BugFixes
+V1.11
+	-Add SetSelections2 - Set the selected items via a list of indexes
+	-Add SetSelections3 - Set the selected items via a map of chip tags
+V1.12
+	-BugFixes
+	-Add get and set MaxSelectionCount - Only in SelectionMode = Multi - Defines the maximum number of items that may be selected
+		-Default: 0
+V1.13
+	-Add GetLabelAt - Gets the chip text label
+	-Add GetBackgroundAt - Gets the chip background panel
 #End If
 
+#DesignerProperty: Key: SelectionMode, DisplayName: SelectionMode, FieldType: String, DefaultValue: None, List: None|Single|Multi
+#DesignerProperty: Key: CanDeselect, DisplayName: CanDeselect, FieldType: Boolean, DefaultValue: True , Description: If true, then the user can remove the selection by clicking again
+#DesignerProperty: Key: SelectionBorderColor, DisplayName: SelectionBorderColor, FieldType: Color, DefaultValue: 0xFFFFFFFF
+#DesignerProperty: Key: SelectionBackgroundColor, DisplayName: SelectionBackgroundColor, FieldType: Color, DefaultValue: 0x00FFFFFF
+#DesignerProperty: Key: SelectionTextColor, DisplayName: SelectionTextColor, FieldType: Color, DefaultValue: 0xFFFFFFFF
 #DesignerProperty: Key: BackgroundColor, DisplayName: Background Color, FieldType: Color, DefaultValue: 0xFF000000
 #DesignerProperty: Key: AutoExpand, DisplayName: Auto Expand, FieldType: Boolean, DefaultValue: False, Description: Increases or decreases the size of the view depending on how many chips are added. The HeightChanged event is triggered.
 #DesignerProperty: Key: ShowRemoveIcon, DisplayName: Show Remove Icon, FieldType: Boolean, DefaultValue: False, Description: Displays a Remove icon which can be clicked on
@@ -40,7 +82,7 @@ V1.05
 Sub Class_Globals
 	
 	Type ASChips_Chip(Text As String,Icon As B4XBitmap,Tag As Object,Index As Int)
-	Type ASChips_ChipProperties(Height As Float,BackgroundColor As Int,TextColor As Int,xFont As B4XFont,CornerRadius As Float,BorderSize As Float,TextGap As Float)
+	Type ASChips_ChipProperties(Height As Float,BackgroundColor As Int,TextColor As Int,xFont As B4XFont,CornerRadius As Float,BorderSize As Float,BorderColor As Int,TextGap As Float)
 	Type ASChips_RemoveIconProperties(BackgroundColor As Int,TextColor As Int)
 	Type ASChips_Views(BackgroundPanel As B4XView,TextLabel As B4XView,IconImageView As B4XView,RemoveIconLabel As B4XView)
 	Type ASChips_CustomDraw(Chip As ASChips_Chip,ChipProperties As ASChips_ChipProperties,Views As ASChips_Views)
@@ -58,6 +100,14 @@ Sub Class_Globals
 	Private m_ShowRemoveIcon As Boolean
 	Private m_AutoExpand As Boolean
 	Private m_Round As Boolean
+	Private m_TopGap As Float = 5dip
+	Private m_SelectionMode As String
+	Private m_SelectionMap As Map
+	Private m_CanDeselect As Boolean
+	Private m_SelectionBorderColor As Int
+	Private m_SelectionBackgroundColor As Int
+	Private m_SelectionTextColor As Int
+	Private m_MaxSelectionCount As Int = 0
 	
 	Private g_ChipProperties As ASChips_ChipProperties
 	Private g_RemoveIconProperties As ASChips_RemoveIconProperties
@@ -70,6 +120,7 @@ Public Sub Initialize (Callback As Object, EventName As String)
 	mEventName = EventName
 	mCallBack = Callback
 	list_Chips.Initialize
+	m_SelectionMap.Initialize
 End Sub
 
 'Base type must be Object
@@ -99,10 +150,15 @@ Private Sub IniProps(Props As Map)
 	m_ShowRemoveIcon = Props.Get("ShowRemoveIcon")
 	m_AutoExpand = Props.Get("AutoExpand")
 	m_Round = Props.Get("Round")
+	m_SelectionMode = Props.GetDefault("SelectionMode","None")
+	m_CanDeselect = Props.GetDefault("CanDeselect",True)
+	m_SelectionBorderColor = xui.PaintOrColorToColor(Props.GetDefault("SelectionBorderColor",xui.Color_White))
+	m_SelectionBackgroundColor = xui.PaintOrColorToColor(Props.GetDefault("SelectionBackgroundColor",xui.Color_ARGB(0,255,255,255)))
+	m_SelectionTextColor = xui.PaintOrColorToColor(Props.GetDefault("SelectionTextColor",xui.Color_White))
 	
 	m_GapBetween = 5dip
 	
-	g_ChipProperties = CreateASChips_ChipProperties(22dip,xui.Color_Black,xui.Color_White,xui.CreateDefaultFont(14),DipToCurrent(Props.Get("CornerRadius")),0,3dip)
+	g_ChipProperties = CreateASChips_ChipProperties(22dip,xui.Color_Black,xui.Color_White,xui.CreateDefaultFont(14),DipToCurrent(Props.Get("CornerRadius")),0,m_SelectionBorderColor,3dip)
 	g_RemoveIconProperties = CreateASChips_RemoveIconProperties(xui.Color_Black,xui.Color_White)
 	
 End Sub
@@ -129,7 +185,7 @@ Public Sub AddChip2(Text As String,Icon As B4XBitmap,ChipColor As Int,xTag As Ob
 End Sub
 
 Private Sub AddChipIntern(Text As String,Icon As B4XBitmap,ChipColor As Int,xTag As Object)
-	Dim ChipProperties As ASChips_ChipProperties = CreateASChips_ChipProperties(g_ChipProperties.Height,ChipColor,g_ChipProperties.TextColor,g_ChipProperties.xFont,g_ChipProperties.CornerRadius,g_ChipProperties.BorderSize,g_ChipProperties.TextGap)
+	Dim ChipProperties As ASChips_ChipProperties = CreateASChips_ChipProperties(g_ChipProperties.Height,ChipColor,g_ChipProperties.TextColor,g_ChipProperties.xFont,g_ChipProperties.CornerRadius,g_ChipProperties.BorderSize,g_ChipProperties.BorderColor,g_ChipProperties.TextGap)
 	
 	Dim Chip As ASChips_Chip
 	Chip.Text = Text
@@ -182,32 +238,40 @@ Public Sub RefreshChips
 		If HaveIcon = True Then Width = Width + ChipProperties.Height/1.3
 		
 		If Left + Width + m_GapBetween >= xpnl_ChipBackground.Width Then
-			If m_AutoExpand = False And (ChipProperties.Height*(CurrentLevel+1))+5dip*(CurrentLevel+1) + ChipProperties.Height > mBase.Height Then
+			If m_AutoExpand = False And (ChipProperties.Height*(CurrentLevel+1))+m_TopGap*(CurrentLevel+1) + ChipProperties.Height > mBase.Height Then
 				CurrentLevel = CurrentLevel
 			Else
 				CurrentLevel = CurrentLevel +1
 			End If
 		End If
-		Dim Top As Float = (ChipProperties.Height*CurrentLevel)+5dip*CurrentLevel
+		Dim Top As Float = (ChipProperties.Height*CurrentLevel)+m_TopGap*CurrentLevel
 		If LastChip.IsInitialized = True Then
 			Left = IIf(CurrentLevel <> LastChip.Tag,0 + m_GapBetween,Left + m_GapBetween)
 		End If
 		
 		'************Container********************************
+		
+		Dim BackgroundColor As Int = ChipProperties.BackgroundColor
+		Dim TextColor As Int = ChipProperties.TextColor
+		If ChipProperties.BorderSize = 2dip And (m_SelectionMode = "Single" Or m_SelectionMode = "Multi") Then
+			BackgroundColor = m_SelectionBackgroundColor
+			TextColor = m_SelectionTextColor
+		End If
+		
 		Dim xpnl_Background As B4XView = xpnl_ChipBackground.GetView(i)
 		xpnl_Background.Tag = CurrentLevel
 		xpnl_Background.SetLayoutAnimated(0,Left,Top,Width,ChipProperties.Height)
-		xpnl_Background.SetColorAndBorder(ChipProperties.BackgroundColor,ChipProperties.BorderSize,0,IIf(m_Round = True,ChipProperties.Height/2, ChipProperties.CornerRadius))
+		xpnl_Background.SetColorAndBorder(BackgroundColor,ChipProperties.BorderSize,ChipProperties.BorderColor,IIf(m_Round = True,ChipProperties.Height/2, ChipProperties.CornerRadius))
 		
-		If m_AutoExpand = False And Left + Width + MeasureTextWidth("+" & (list_Chips.Size - LastItemWhatVisible),g_ChipProperties.xFont) + FontGap + m_GapBetween + ChipProperties.TextGap*3 > mBase.Width Then
+		If m_AutoExpand = False And (ChipProperties.Height*(CurrentLevel+1))+m_TopGap*(CurrentLevel+1) + ChipProperties.Height > mBase.Height And Left + Width + MeasureTextWidth("+" & ((list_Chips.Size-1) - LastItemWhatVisible),g_ChipProperties.xFont) + FontGap + m_GapBetween + ChipProperties.TextGap*3 > mBase.Width Then
 			xpnl_Background.Visible = False
 			
 			Dim LastVisibleItem As B4XView = xpnl_ChipBackground.GetView(LastItemWhatVisible)
 			
 			If LastItemWhatVisible = 0 Then
-				xpnl_HiddenChips.SetLayoutAnimated(0,m_GapBetween,0,MeasureTextWidth("+" & (list_Chips.Size - LastItemWhatVisible),g_ChipProperties.xFont) + FontGap + ChipProperties.TextGap*3,g_ChipProperties.Height)
-				Else
-				xpnl_HiddenChips.SetLayoutAnimated(0,LastVisibleItem.Left + LastVisibleItem.Width + m_GapBetween,LastVisibleItem.Top,MeasureTextWidth("+" & (list_Chips.Size - LastItemWhatVisible),g_ChipProperties.xFont) + FontGap + ChipProperties.TextGap*3,g_ChipProperties.Height)
+				xpnl_HiddenChips.SetLayoutAnimated(0,m_GapBetween,0,MeasureTextWidth("+" & ((list_Chips.Size -1)- LastItemWhatVisible),g_ChipProperties.xFont) + FontGap + ChipProperties.TextGap*3,g_ChipProperties.Height)
+			Else
+				xpnl_HiddenChips.SetLayoutAnimated(0,LastVisibleItem.Left + LastVisibleItem.Width + m_GapBetween,LastVisibleItem.Top,MeasureTextWidth("+" & ((list_Chips.Size-1) - LastItemWhatVisible),g_ChipProperties.xFont) + FontGap + ChipProperties.TextGap*3,g_ChipProperties.Height)
 			End If
 			
 			xpnl_HiddenChips.SetColorAndBorder(g_ChipProperties.BackgroundColor,0,0,xpnl_HiddenChips.Height/2)
@@ -216,7 +280,7 @@ Public Sub RefreshChips
 			xlbl_HiddenChips.TextColor = g_ChipProperties.TextColor
 			xlbl_HiddenChips.SetLayoutAnimated(0,0,0,xpnl_HiddenChips.Width,xpnl_HiddenChips.Height)
 			xlbl_HiddenChips.SetTextAlignment("CENTER","CENTER")
-			xlbl_HiddenChips.Text = "+" & (list_Chips.Size - LastItemWhatVisible)
+			xlbl_HiddenChips.Text = "+" & ((list_Chips.Size -1) - LastItemWhatVisible)
 			xpnl_HiddenChips.Visible = True
 		Else
 			xpnl_HiddenChips.Visible = False
@@ -227,7 +291,7 @@ Public Sub RefreshChips
 		
 		'************Text********************************
 		Dim xlbl_Text As B4XView = xpnl_Background.GetView(0)
-		xlbl_Text.TextColor = ChipProperties.TextColor
+		xlbl_Text.TextColor = TextColor
 		xlbl_Text.SetTextAlignment("CENTER","CENTER")
 		xlbl_Text.Font = ChipProperties.xFont
 		xlbl_Text.SetLayoutAnimated(0,ChipProperties.TextGap + IIf(HaveIcon = True,ChipProperties.Height/1.3,0),0,MeasureTextWidth(Chip.Text,ChipProperties.xFont) + FontGap + ChipProperties.TextGap,ChipProperties.Height)
@@ -281,7 +345,155 @@ Public Sub RefreshChips
 	
 End Sub
 
+'Updates just the font and colors
+Public Sub RefreshProperties
+	For i = 0 To list_Chips.Size -1
+		Dim ChipProperties As ASChips_ChipProperties = list_Chips.Get(i).As(Map).Get("ChipProperties")
+		Dim xpnl_Background As B4XView = xpnl_ChipBackground.GetView(i)
+		
+		Dim BackgroundColor As Int = ChipProperties.BackgroundColor
+		Dim TextColor As Int = ChipProperties.TextColor
+		If ChipProperties.BorderSize = 2dip And (m_SelectionMode = "Single" Or m_SelectionMode = "Multi") Then
+			BackgroundColor = m_SelectionBackgroundColor
+			TextColor = m_SelectionTextColor
+		End If
+		xpnl_Background.SetColorAndBorder(BackgroundColor,ChipProperties.BorderSize,ChipProperties.BorderColor,IIf(m_Round = True,xpnl_Background.Height/2, ChipProperties.CornerRadius))
+		Dim xlbl_Text As B4XView = xpnl_Background.GetView(0)
+		xlbl_Text.TextColor = TextColor
+		xlbl_Text.Font = ChipProperties.xFont
+			
+	Next
+End Sub
+
 #Region Properties
+
+'Only in SelectionMode = Multi - Defines the maximum number of items that may be selected
+'Default: 0
+Public Sub setMaxSelectionCount(MaxSelecion As Int)
+	m_MaxSelectionCount = MaxSelecion
+End Sub
+
+Public Sub getMaxSelectionCount As Int
+	Return m_MaxSelectionCount
+End Sub
+
+Public Sub getSelectionTextColor As Int
+	Return m_SelectionTextColor
+End Sub
+
+Public Sub setSelectionTextColor(Color As Int)
+	m_SelectionTextColor = Color
+End Sub
+
+Public Sub getSelectionBackgroundColor As Int
+	Return m_SelectionBackgroundColor
+End Sub
+
+Public Sub setSelectionBackgroundColor(Color As Int)
+	m_SelectionBackgroundColor = Color
+End Sub
+
+Public Sub getSelectionBorderColor As Int
+	Return m_SelectionBorderColor
+End Sub
+
+Public Sub setSelectionBorderColor(Color As Int)
+	m_SelectionBorderColor = Color
+End Sub
+
+Public Sub getSelectionMode As String
+	Return m_SelectionMode
+End Sub
+
+'<code>None</code>
+'<code>Single</code>
+'<code>Multi</code>
+Public Sub setSelectionMode(Mode As String)
+	m_SelectionMode = Mode
+End Sub
+
+'SelectionMode must be set to Single or Multi
+Public Sub setSelection(Index As Int)
+	HandleSelection(xpnl_ChipBackground.GetView(Index))
+End Sub
+
+Public Sub ClearSelections
+	For i = 0 To list_Chips.Size -1
+				
+		Dim ChipProperties As ASChips_ChipProperties = list_Chips.Get(i).As(Map).Get("ChipProperties")
+		
+		ChipProperties.BorderSize = 0dip
+		ChipProperties.BorderColor = xui.Color_Transparent
+
+		SetChipProperties(i,ChipProperties)
+	Next
+	RefreshProperties
+	m_SelectionMap.Clear
+End Sub
+
+'Returns the indexes of the selected chips
+'<code>
+'	For Each Index As Int In xchips_Weekdays.GetSelections
+'		Log(xchips_Weekdays.GetChip(Index).Tag)
+'	Next
+'</code>
+Public Sub GetSelections As List
+	Dim lst As List
+	lst.Initialize
+	For Each k As String In m_SelectionMap.Keys
+		lst.Add(k)
+	Next
+	Return lst
+End Sub
+
+'<code>AS_Chips1.SetSelections(Array As Int(0,3,7))</code>
+Public Sub SetSelections(Indexes() As Int)
+	For Each Index In Indexes
+		HandleSelection(xpnl_ChipBackground.GetView(Index))
+	Next
+End Sub
+
+'<code>
+'	Dim lst_Indexes As List
+'	lst_Indexes.Initialize
+'	lst_Indexes.Add(0)
+'	lst_Indexes.Add(3)
+'	lst_Indexes.Add(5)
+'	AS_Chips1.SetSelections2(lst_Indexes)
+'</code>
+Public Sub SetSelections2(Indexes As List)
+	For Each Index In Indexes
+		HandleSelection(xpnl_ChipBackground.GetView(Index))
+	Next
+End Sub
+
+'Selects the items with the matching value in the tag with the value of the map item
+'<code>
+'	Dim ValueMap As Map
+'	ValueMap.Initialize
+'	ValueMap.Put("Item1","Value1")
+'	ValueMap.Put("Item3","Value3")
+'	ValueMap.Put("Item5","Value5")
+'	AS_Chips1.SetSelections3(ValueMap)
+'</code>
+Public Sub SetSelections3(Values As Map)
+	For Each key As String In Values.Keys
+		For i = 0 To getSize -1
+			If GetChip(i).Tag = Values.Get(key) Then
+				HandleSelection(xpnl_ChipBackground.GetView(i))
+				Exit
+			End If
+		Next
+	Next
+End Sub
+
+Public Sub setTopGap(Gap As Float)
+	m_TopGap = Gap
+End Sub
+
+Public Sub getTopGap As Float
+	Return m_TopGap
+End Sub
 
 Public Sub getGapBetween As Float
 	Return m_GapBetween
@@ -331,6 +543,14 @@ Public Sub GetChip(Index As Int) As ASChips_Chip
 	Return list_Chips.Get(Index).As(Map).Get("Chip")
 End Sub
 
+Public Sub GetBackgroundAt(index As Int) As B4XView
+	Return xpnl_ChipBackground.GetView(index)
+End Sub
+
+Public Sub GetLabelAt(index As Int) As B4XView
+	Return xpnl_ChipBackground.GetView(index).GetView(0)
+End Sub
+
 Public Sub getShowRemoveIcon As Boolean
 	Return m_ShowRemoveIcon
 End Sub
@@ -361,6 +581,20 @@ End Sub
 
 Public Sub getRound As Boolean
 	Return m_Round
+End Sub
+
+Public Sub CopyChipPropertiesGlobal As ASChips_ChipProperties
+	Dim ChipProps As ASChips_ChipProperties
+	ChipProps.Initialize
+	ChipProps.BackgroundColor = g_ChipProperties.BackgroundColor
+	ChipProps.BorderSize = g_ChipProperties.BorderSize
+	ChipProps.CornerRadius = g_ChipProperties.CornerRadius
+	ChipProps.Height = g_ChipProperties.Height
+	ChipProps.TextColor = g_ChipProperties.TextColor
+	ChipProps.TextGap = g_ChipProperties.TextGap
+	ChipProps.xFont = g_ChipProperties.xFont
+	ChipProps.BorderColor = g_ChipProperties.BorderColor
+	Return ChipProps
 End Sub
 
 #End Region
@@ -465,11 +699,60 @@ Private Sub RemoveChip2(xlbl_RemoveIcon As B4XView)
 End Sub
 
 Private Sub ClickedChip(xpnl_Background As B4XView)
+	Dim OldSelectionCount As Int = m_SelectionMap.Size
+	HandleSelection(xpnl_Background)
+	If m_MaxSelectionCount > 0 And m_SelectionMode = "Multi" And m_MaxSelectionCount = OldSelectionCount Then Return
 	ChipClicked(list_Chips.Get(xpnl_Background.GetView(2).Tag).As(Map).Get("Chip"))
 End Sub
 
 Private Sub LongClickedChip(xpnl_Background As B4XView)
+	HandleSelection(xpnl_Background)
 	ChipLongClick(list_Chips.Get(xpnl_Background.GetView(2).Tag).As(Map).Get("Chip"))
+End Sub
+
+Private Sub HandleSelection(xpnl_Background As B4XView)
+	Dim ThisChip As ASChips_Chip = list_Chips.Get(xpnl_Background.GetView(2).Tag).As(Map).Get("Chip")
+	Select m_SelectionMode
+		Case "Single"
+			For i = 0 To list_Chips.Size -1
+				
+				Dim Props As ASChips_ChipProperties = list_Chips.Get(i).As(Map).Get("ChipProperties")
+		
+				If i = ThisChip.Index And Props.BorderSize = 0dip Then
+					Props.BorderSize = 2dip
+					Props.BorderColor = m_SelectionBorderColor
+					m_SelectionMap.Put(i,i)
+				Else If m_CanDeselect And i = ThisChip.Index And Props.BorderSize = 2dip Then
+					Props.BorderSize = 0dip
+					Props.BorderColor = xui.Color_Transparent
+					m_SelectionMap.Remove(i)
+				Else if i <> ThisChip.Index Then
+					Props.BorderSize = 0dip
+					Props.BorderColor = xui.Color_Transparent
+					m_SelectionMap.Remove(i)
+				End If
+				SetChipProperties(i,Props)
+			Next
+			RefreshProperties
+		Case "Multi"
+			For i = 0 To list_Chips.Size -1
+				
+				Dim Props As ASChips_ChipProperties = list_Chips.Get(i).As(Map).Get("ChipProperties")
+		
+				If i = ThisChip.Index And Props.BorderSize = 0dip Then
+					If m_MaxSelectionCount > 0 And m_MaxSelectionCount = m_SelectionMap.Size Then Return
+					Props.BorderSize = 2dip
+					Props.BorderColor = m_SelectionBorderColor
+					m_SelectionMap.Put(i,i)
+				Else if m_CanDeselect And i = ThisChip.Index And Props.BorderSize = 2dip Then
+					Props.BorderSize = 0dip
+					Props.BorderColor = xui.Color_Transparent
+					m_SelectionMap.Remove(i)
+				End If
+				SetChipProperties(i,Props)
+			Next
+			RefreshProperties
+	End Select
 End Sub
 
 #End Region
@@ -536,19 +819,6 @@ End Sub
 
 #Region Types
 
-Public Sub CreateASChips_ChipProperties (Height As Float, BackgroundColor As Int, TextColor As Int, xFont As B4XFont, CornerRadius As Float, BorderSize As Float, TextGap As Float) As ASChips_ChipProperties
-	Dim t1 As ASChips_ChipProperties
-	t1.Initialize
-	t1.Height = Height
-	t1.BackgroundColor = BackgroundColor
-	t1.TextColor = TextColor
-	t1.xFont = xFont
-	t1.CornerRadius = CornerRadius
-	t1.BorderSize = BorderSize
-	t1.TextGap = TextGap
-	Return t1
-End Sub
-
 Public Sub CreateASChips_RemoveIconProperties (BackgroundColor As Int, TextColor As Int) As ASChips_RemoveIconProperties
 	Dim t1 As ASChips_RemoveIconProperties
 	t1.Initialize
@@ -577,3 +847,17 @@ Public Sub CreateASChips_Views (BackgroundPanel As B4XView, TextLabel As B4XView
 End Sub
 
 #End Region
+
+Public Sub CreateASChips_ChipProperties (Height As Float, BackgroundColor As Int, TextColor As Int, xFont As B4XFont, CornerRadius As Float, BorderSize As Float, BorderColor As Int, TextGap As Float) As ASChips_ChipProperties
+	Dim t1 As ASChips_ChipProperties
+	t1.Initialize
+	t1.Height = Height
+	t1.BackgroundColor = BackgroundColor
+	t1.TextColor = TextColor
+	t1.xFont = xFont
+	t1.CornerRadius = CornerRadius
+	t1.BorderSize = BorderSize
+	t1.BorderColor = BorderColor
+	t1.TextGap = TextGap
+	Return t1
+End Sub

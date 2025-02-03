@@ -2,11 +2,11 @@
 ModuleBookmarks1=
 ModuleBookmarks2=
 ModuleBreakpoints0=
-ModuleBreakpoints1=149
+ModuleBreakpoints1=
 ModuleBreakpoints2=
 ModuleClosedNodes0=4
 ModuleClosedNodes1=
 ModuleClosedNodes2=
-NavigationStack=AS_Chips,Class_Globals,35,3,Visual Designer,frm_main.bil,-100,1,B4XMainPage,B4XPage_Created,35,6,AS_Chips,AddChipIntern,192,6
+NavigationStack=AS_Chips,RefreshProperties,325,6,AS_Chips,AddChipIntern,175,0,AS_Chips,ClearSelections,396,0,AS_Chips,GetSelections,413,0,AS_Chips,Class_Globals,97,0,AS_Chips,SetSelections3,428,6,Visual Designer,frm_main.bil,-100,3,B4XMainPage,B4XPage_Created,54,6,AS_Chips,SetSelections,423,6,AS_Chips,SetSelections2,431,1
 SelectedBuild=0
 VisibleModules=2,1
