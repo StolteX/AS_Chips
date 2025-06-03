@@ -7,6 +7,6 @@ ModuleBreakpoints2=
 ModuleClosedNodes0=4
 ModuleClosedNodes1=
 ModuleClosedNodes2=
-NavigationStack=AS_Chips,RefreshProperties,325,6,AS_Chips,AddChipIntern,175,0,AS_Chips,ClearSelections,396,0,AS_Chips,GetSelections,413,0,AS_Chips,Class_Globals,97,0,AS_Chips,SetSelections3,428,6,Visual Designer,frm_main.bil,-100,3,B4XMainPage,B4XPage_Created,54,6,AS_Chips,SetSelections,423,6,AS_Chips,SetSelections2,431,1
+NavigationStack=AS_Chips,SetChipProperties,536,0,AS_Chips,GetChipProperties2,546,5,AS_Chips,GetLabelAt,569,0,AS_Chips,setShowRemoveIcon,578,2,AS_Chips,HiddenChipsClicked,683,0,AS_Chips,xlbl_RemoveIcon_Click,688,3,AS_Chips,MeasureTextWidth,806,0,AS_Chips,IniProps,163,0,AS_Chips,Class_Globals,113,0,AS_Chips,RefreshChips,303,2
 SelectedBuild=0
 VisibleModules=2,1

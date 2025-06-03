@@ -58,6 +58,11 @@ V1.12
 V1.13
 	-Add GetLabelAt - Gets the chip text label
 	-Add GetBackgroundAt - Gets the chip background panel
+V1.14
+	-New - ShowRemoveIcon added to ASScrollingChips_ChipProperties type
+	-New - xFont and Icon added to ASScrollingChips_RemoveIconProperties type
+	-New - GetChipProperties2 Get the chip props via the tag value of the item
+	-New - RemoveChipClicked Event - if the event is used, automatic deletion is deactivated
 #End If
 
 #DesignerProperty: Key: SelectionMode, DisplayName: SelectionMode, FieldType: String, DefaultValue: None, List: None|Single|Multi
@@ -78,12 +83,13 @@ V1.13
 #Event: HiddenChipsClicked (ListChips As List)
 #Event: CustomDrawChip(Item As ASChips_CustomDraw)
 #Event: EmptyAreaClick
+#Event: RemoveChipClicked(Chip As ASScrollingChips_Chip)
 
 Sub Class_Globals
 	
 	Type ASChips_Chip(Text As String,Icon As B4XBitmap,Tag As Object,Index As Int)
-	Type ASChips_ChipProperties(Height As Float,BackgroundColor As Int,TextColor As Int,xFont As B4XFont,CornerRadius As Float,BorderSize As Float,BorderColor As Int,TextGap As Float)
-	Type ASChips_RemoveIconProperties(BackgroundColor As Int,TextColor As Int)
+	Type ASChips_ChipProperties(Height As Float,BackgroundColor As Int,TextColor As Int,xFont As B4XFont,CornerRadius As Float,BorderSize As Float,BorderColor As Int,TextGap As Float,ShowRemoveIcon As Boolean)
+	Type ASChips_RemoveIconProperties(BackgroundColor As Int,TextColor As Int,xFont As B4XFont,Icon As String)
 	Type ASChips_Views(BackgroundPanel As B4XView,TextLabel As B4XView,IconImageView As B4XView,RemoveIconLabel As B4XView)
 	Type ASChips_CustomDraw(Chip As ASChips_Chip,ChipProperties As ASChips_ChipProperties,Views As ASChips_Views)
 	
@@ -159,7 +165,9 @@ Private Sub IniProps(Props As Map)
 	m_GapBetween = 5dip
 	
 	g_ChipProperties = CreateASChips_ChipProperties(22dip,xui.Color_Black,xui.Color_White,xui.CreateDefaultFont(14),DipToCurrent(Props.Get("CornerRadius")),0,m_SelectionBorderColor,3dip)
-	g_RemoveIconProperties = CreateASChips_RemoveIconProperties(xui.Color_Black,xui.Color_White)
+	g_ChipProperties.ShowRemoveIcon = m_ShowRemoveIcon
+	
+	g_RemoveIconProperties = CreateASChips_RemoveIconProperties(xui.Color_Black,xui.Color_White,xui.CreateMaterialIcons(9),Chr(0xE5CD))
 	
 End Sub
 
@@ -234,7 +242,7 @@ Public Sub RefreshChips
 		Dim Left As Float = IIf(LastChip.IsInitialized = True,LastChip.Left + LastChip.Width,0) + m_GapBetween
 		Dim Width As Float = MeasureTextWidth(Chip.Text,ChipProperties.xFont) + FontGap + ChipProperties.TextGap*3
 		
-		If m_ShowRemoveIcon = True Then Width = Width + IIf(xui.IsB4J,ChipProperties.Height/1.5,ChipProperties.Height)
+		If ChipProperties.ShowRemoveIcon Then Width = Width + IIf(xui.IsB4J,ChipProperties.Height/1.5,ChipProperties.Height)
 		If HaveIcon = True Then Width = Width + ChipProperties.Height/1.3
 		
 		If Left + Width + m_GapBetween >= xpnl_ChipBackground.Width Then
@@ -311,12 +319,12 @@ Public Sub RefreshChips
 		'************RemoveIcon********************************
 		Dim xlbl_RemoveIcon As B4XView = xpnl_Background.GetView(2)
 		xlbl_RemoveIcon.Tag = i
-		If m_ShowRemoveIcon = True Then
+		If ChipProperties.ShowRemoveIcon Then
 			
 			Dim HeightWidth As Float = ChipProperties.Height/1.5
 			
-			xlbl_RemoveIcon.Font = xui.CreateMaterialIcons(9)
-			xlbl_RemoveIcon.Text = Chr(0xE5CD)
+			xlbl_RemoveIcon.Font = g_RemoveIconProperties.xFont
+			xlbl_RemoveIcon.Text = g_RemoveIconProperties.Icon
 			xlbl_RemoveIcon.SetTextAlignment("CENTER","CENTER")
 			xlbl_RemoveIcon.SetColorAndBorder(g_RemoveIconProperties.BackgroundColor,0,0,HeightWidth/2)
 			xlbl_RemoveIcon.TextColor = g_RemoveIconProperties.TextColor
@@ -539,6 +547,20 @@ Public Sub GetChipProperties(Index As Int) As ASChips_ChipProperties
 	Return list_Chips.Get(Index).As(Map).Get("ChipProperties")
 End Sub
 
+'Value = Tag
+Public Sub GetChipProperties2(Value As Object) As ASChips_ChipProperties
+	
+	For i = 0 To list_Chips.Size -1
+		
+		If list_Chips.Get(i) Is Map And list_Chips.Get(i).As(Map).Get("Chip").As(ASChips_Chip).tag = Value Then
+			Return list_Chips.Get(i).As(Map).Get("ChipProperties")
+		End If
+		
+	Next
+	
+	Return Null
+End Sub
+
 Public Sub GetChip(Index As Int) As ASChips_Chip
 	Return list_Chips.Get(Index).As(Map).Get("Chip")
 End Sub
@@ -551,12 +573,22 @@ Public Sub GetLabelAt(index As Int) As B4XView
 	Return xpnl_ChipBackground.GetView(index).GetView(0)
 End Sub
 
+'Overwrites all ItemProperties with the new value
 Public Sub getShowRemoveIcon As Boolean
 	Return m_ShowRemoveIcon
 End Sub
 
 Public Sub setShowRemoveIcon(Show As Boolean)
 	m_ShowRemoveIcon = Show
+	
+	For i = 0 To list_Chips.Size -1
+				
+		Dim Props As ASChips_ChipProperties = list_Chips.Get(i).As(Map).Get("ChipProperties")
+		Props.ShowRemoveIcon = Show
+		SetChipProperties(i,Props)
+	Next
+	RefreshProperties
+	
 End Sub
 
 Public Sub getAutoExpand As Boolean
@@ -655,13 +687,20 @@ End Sub
 #If B4J
 Private Sub xlbl_RemoveIcon_MouseClicked (EventData As MouseEvent)
 	EventData.Consume
-	RemoveChip2(Sender)
-End Sub
 #Else
 Private Sub xlbl_RemoveIcon_Click
-	RemoveChip2(Sender)
-End Sub
 #End If
+
+	Dim xlbl_RemoveIcon As B4XView = Sender
+	
+	If xui.SubExists(mCallBack, mEventName & "_RemoveChipClicked",1) Then
+		Dim Index As Int = xlbl_RemoveIcon.Tag
+		CallSub2(mCallBack, mEventName & "_RemoveChipClicked",list_Chips.get(Index).As(Map).Get("Chip"))
+	Else
+		RemoveChip2(xlbl_RemoveIcon)
+	End If
+	
+End Sub
 
 #If B4J
 Private Sub xpnl_ChipBackground_MouseClicked (EventData As MouseEvent)
@@ -819,11 +858,13 @@ End Sub
 
 #Region Types
 
-Public Sub CreateASChips_RemoveIconProperties (BackgroundColor As Int, TextColor As Int) As ASChips_RemoveIconProperties
+Public Sub CreateASChips_RemoveIconProperties (BackgroundColor As Int, TextColor As Int, xFont As B4XFont, Icon As String) As ASChips_RemoveIconProperties
 	Dim t1 As ASChips_RemoveIconProperties
 	t1.Initialize
 	t1.BackgroundColor = BackgroundColor
 	t1.TextColor = TextColor
+	t1.xFont = xFont
+	t1.Icon = Icon
 	Return t1
 End Sub
 
@@ -861,3 +902,4 @@ Public Sub CreateASChips_ChipProperties (Height As Float, BackgroundColor As Int
 	t1.TextGap = TextGap
 	Return t1
 End Sub
+
