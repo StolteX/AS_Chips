@@ -63,6 +63,8 @@ V1.14
 	-New - xFont and Icon added to ASScrollingChips_RemoveIconProperties type
 	-New - GetChipProperties2 Get the chip props via the tag value of the item
 	-New - RemoveChipClicked Event - if the event is used, automatic deletion is deactivated
+V1.15
+	-BugFix
 #End If
 
 #DesignerProperty: Key: SelectionMode, DisplayName: SelectionMode, FieldType: String, DefaultValue: None, List: None|Single|Multi
@@ -194,6 +196,7 @@ End Sub
 
 Private Sub AddChipIntern(Text As String,Icon As B4XBitmap,ChipColor As Int,xTag As Object)
 	Dim ChipProperties As ASChips_ChipProperties = CreateASChips_ChipProperties(g_ChipProperties.Height,ChipColor,g_ChipProperties.TextColor,g_ChipProperties.xFont,g_ChipProperties.CornerRadius,g_ChipProperties.BorderSize,g_ChipProperties.BorderColor,g_ChipProperties.TextGap)
+	ChipProperties.ShowRemoveIcon = g_ChipProperties.ShowRemoveIcon
 	
 	Dim Chip As ASChips_Chip
 	Chip.Text = Text

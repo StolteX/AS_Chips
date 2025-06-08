@@ -7,6 +7,6 @@ ModuleBreakpoints2=
 ModuleClosedNodes0=1,4
 ModuleClosedNodes1=
 ModuleClosedNodes2=
-NavigationStack=Visual Designer,frm_main.bjl,-100,3,AS_Chips,IniProps,143,2,AS_Chips,RefreshChips,289,0,AS_Chips,AddChip,170,0,AS_Chips,AddChipIntern,195,0,AS_Chips,AddChip2,175,0,B4XMainPage,B4XPage_Created,47,4,AS_Chips,GetChip,538,0,AS_Chips,GetLabelAt,543,6,AS_Chips,GetBackgroundAt,538,0
+NavigationStack=AS_Chips,SetChipProperties,538,0,AS_Chips,IniProps,161,0,AS_Chips,CustomDrawChip,635,0,AS_Chips,EmptyAreaClick,632,0,AS_Chips,Base_Resize,169,0,B4XMainPage,B4XPage_Created,47,0,Visual Designer,frm_main.bjl,-100,2,AS_Chips,RefreshChips,238,0,AS_Chips,AddChipIntern,189,3,B4XMainPage,AS_Chips1_CustomDrawChip,108,0
 SelectedBuild=0
 VisibleModules=2,1
